@@ -1,0 +1,9 @@
+# Reconocimiento facial (YuNet + SFace vienen incluidos en OpenCV >= 4.8)
+opencv-python-headless>=4.8
+numpy
+pillow
+pandas
+# Interfaz web
+streamlit>=1.40
+streamlit-webrtc
+av

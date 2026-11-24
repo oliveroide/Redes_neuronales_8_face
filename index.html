@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconocimiento facial</title>
+<!--
+  Interfaz HTML de la app de reconocimiento facial.
+  Incrusta la app Streamlit (que corre el modelo YuNet + SFace) en un iframe.
+  1) En una terminal:  streamlit run app.py
+  2) Abre este archivo en el navegador.
+  Si la app corre en otra dirección (p. ej. un túnel de Cloudflare para el celular),
+  escríbela en el campo "Servidor" y presiona Conectar.
+-->
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#5d6678; --ok:#1f9d55; --bad:#d64545; --accent:#3b5bdb; --line:#e2e5ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12151b; --card:#1b1f27; --text:#e8ebf0; --muted:#9aa3b2; --line:#2b313c; --accent:#7c94ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:20px 16px 8px; max-width:1200px; margin:auto; }
+  h1 { margin:0 0 4px; font-size:1.6rem; }
+  p { color:var(--muted); margin:4px 0; line-height:1.45; }
+  main { max-width:1200px; margin:auto; padding:8px 16px 24px; display:grid; gap:16px; grid-template-columns: 300px 1fr; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card h2 { font-size:1rem; margin:0 0 10px; }
+  ol { padding-left:18px; margin:0; color:var(--muted); line-height:1.6; }
+  .pipeline { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .step { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:.9rem; }
+  .step b { color:var(--accent); }
+  .legend span { display:inline-block; padding:2px 8px; border-radius:6px; color:#fff; font-size:.85rem; margin:4px 4px 0 0; }
+  form { display:flex; gap:8px; margin-top:8px; }
+  input { flex:1; min-width:0; padding:8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); }
+  button { padding:8px 12px; border:0; border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  #estado { font-size:.85rem; margin-top:8px; }
+  iframe { width:100%; height:80vh; min-height:600px; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+  code { background:var(--bg); padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔐 Control de acceso por reconocimiento facial</h1>
+  <p>Activa la cámara en vivo: la app indica si la persona está registrada (acceso autorizado) o si es un rostro desconocido (acceso denegado).</p>
+</header>
+
+<main>
+  <aside style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <h2>Cómo usarla</h2>
+      <ol>
+        <li>Ejecuta <code>streamlit run app.py</code></li>
+        <li>Presiona <b>START</b> y permite el acceso a la cámara</li>
+        <li>Mira a la cámara: verde = registrado, rojo = desconocido</li>
+      </ol>
+      <form id="f">
+        <input id="url" value="http://localhost:8501" aria-label="Servidor">
+        <button>Conectar</button>
+      </form>
+      <div id="estado"></div>
+    </div>
+
+    <div class="card">
+      <h2>Modelo</h2>
+      <div class="pipeline">
+        <div class="step"><b>1. Detección</b> — YuNet (CNN ligera) encuentra cada rostro y 5 puntos faciales.</div>
+        <div class="step"><b>2. Alineación</b> — el rostro se recorta y alinea a 112×112 con los ojos, nariz y boca.</div>
+        <div class="step"><b>3. Embedding</b> — SFace convierte el rostro en un vector de 128 números.</div>
+        <div class="step"><b>4. Comparación</b> — similitud coseno contra las 14 fotos de la base de datos.</div>
+        <div class="step"><b>5. Decisión</b> — similitud ≥ 0.42 → persona registrada; si no → desconocido.</div>
+      </div>
+      <div class="legend" style="margin-top:10px">
+        <span style="background:var(--ok)">Autorizado</span><span style="background:var(--bad)">Desconocido</span>
+      </div>
+    </div>
+  </aside>
+
+  <section>
+    <iframe id="app" src="http://localhost:8501" allow="camera; microphone" title="App de reconocimiento facial"></iframe>
+  </section>
+</main>
+
+<script>
+  // Cambia la dirección del iframe y avisa si el servidor Streamlit no responde.
+  const iframe = document.getElementById('app');
+  const estado = document.getElementById('estado');
+  async function conectar(url) {
+    iframe.src = url;
+    try {
+      await fetch(url + '/_stcore/health', { mode: 'no-cors' });
+      estado.textContent = '🟢 Conectado a ' + url;
+    } catch {
+      estado.textContent = '🔴 No responde ' + url + ' — ¿ya corriste "streamlit run app.py"?';
+    }
+  }
+  document.getElementById('f').addEventListener('submit', e => {
+    e.preventDefault();
+    conectar(document.getElementById('url').value.replace(/\/$/, ''));
+  });
+  conectar(iframe.src.replace(/\/$/, ''));
+</script>
+</body>
+</html>
